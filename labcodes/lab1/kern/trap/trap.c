@@ -11,8 +11,8 @@
 
 #define TICK_NUM 100
 
-static void print_ticks() {
-    cprintf("%d ticks\n",TICK_NUM);
+static void print_ticks(uint32_t num) {
+    cprintf("%d ticks\n",num);
 #ifdef DEBUG_GRADE
     cprintf("End of Test.\n");
     panic("EOT: kernel seems ok.");
@@ -46,6 +46,14 @@ idt_init(void) {
       *     You don't know the meaning of this instruction? just google it! and check the libs/x86.h to know more.
       *     Notice: the argument of lidt is idt_pd. try to find it!
       */
+    extern uintptr_t __vectors[];
+    for (int i = 0; i < 256; ++i) {
+    	SETGATE(idt[i], 0, GD_KTEXT, __vectors[i], DPL_KERNEL);
+    }
+	// set for switch from user to kernel
+    SETGATE(idt[T_SWITCH_TOK], 0, GD_KTEXT, __vectors[T_SWITCH_TOK], DPL_USER);
+	// load the IDT
+    lidt(&idt_pd);
 }
 
 static const char *
@@ -135,6 +143,8 @@ print_regs(struct pushregs *regs) {
 }
 
 /* trap_dispatch - dispatch based on what type of trap occurred */
+uint32_t g_time_interrupt_cnt = 0;
+#define TIME_INTER_LOOP_NUM 100
 static void
 trap_dispatch(struct trapframe *tf) {
     char c;
@@ -147,6 +157,10 @@ trap_dispatch(struct trapframe *tf) {
          * (2) Every TICK_NUM cycle, you can print some info using a funciton, such as print_ticks().
          * (3) Too Simple? Yes, I think so!
          */
+		++g_time_interrupt_cnt;
+		if (g_time_interrupt_cnt % TIME_INTER_LOOP_NUM == 0) {
+			print_ticks(g_time_interrupt_cnt);
+		}
         break;
     case IRQ_OFFSET + IRQ_COM1:
         c = cons_getc();
